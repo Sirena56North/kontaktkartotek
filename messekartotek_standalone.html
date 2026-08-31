@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kontaktkartotek</title>
+
+<!-- App-ikon + "føj til hjemmeskærm"-opsætning (iOS/Android) -->
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kontakter">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#a8672e">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Public+Sans:wght@400;500;600;700&display=swap">
+
+<!--
+  ============================================================================
+  OPSÆTNING (gør dette ÉN gang, ca. 5 minutter, ingen betaling):
+
+  1. Gå til https://console.firebase.google.com, opret et gratis projekt
+     (fx "56north-kontaktkartotek").
+  2. I projektet: Build → Firestore Database → Create database →
+     start i "test mode" (vi strammer reglerne i trin 4).
+  3. Klik det lille tandhjul øverst til venstre → Project settings →
+     under "Your apps" → vælg web (</> ikonet) → registrér en app
+     (intet navn nødvendigt) → kopiér de 6 linjer, du får vist
+     (apiKey, authDomain, projectId, osv.) ind i FIREBASE_CONFIG
+     nedenfor, i stedet for de tomme strenge.
+  4. Under Firestore → Rules, indsæt reglerne fra filen
+     "firestore.rules.txt" (leveret sammen med denne fil), og klik Publish.
+  5. Sæt din egen adgangskode i PASSCODE nedenfor (skift fra
+     "SIRENA2026" til noget I selv vælger).
+  6. Læg filen på GitHub Pages (eller enhver anden statisk hosting) —
+     det er en almindelig HTML-fil, ingen server nødvendig ud over Firebase.
+
+  VIGTIGT om adgangskoden: PASSCODE nedenfor er en simpel dør i selve
+  siden — den forhindrer nogen i ved et tilfælde at åbne kartoteket og
+  se data. Den er IKKE en garanteret databaselås: reglerne i
+  firestore.rules.txt kræver kun, at man er logget ind (anonymt) via
+  Firebase, ikke at man kender koden. En teknisk kyndig person, der
+  bevidst læser sidens kildekode, kunne i princippet omgå selve
+  app-døren og tilgå databasen direkte. Det er prisen for at være
+  uafhængig af Claudes indbyggede organisations-login — send derfor kun
+  linket til folk, I stoler på, ligesom med en delt Google-formular.
+
+  Uafhængig af Claude: denne side bruger ikke Claude på nogen måde —
+  al lagring og synkronisering sker via jeres eget Firebase-projekt.
+  ============================================================================
+-->
+
+<style>
+  :root {
+    --ink: #16262f;
+    --paper: #f6f2e9;
+    --surface: #ffffff;
+    --surface-2: #fbf8f2;
+    --line: #ddd6c7;
+    --muted: #746c5d;
+    --accent: #a8672e;
+    --accent-ink: #ffffff;
+    --success: #3f6b4c;
+    --success-bg: #e5efe6;
+    --danger: #a34a3f;
+    --shadow: 0 1px 2px rgba(22,38,47,.06), 0 6px 20px rgba(22,38,47,.07);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #f2ece0; --paper: #10191b; --surface: #182527; --surface-2: #1c2b2d;
+      --line: #2b3a3a; --muted: #a79d8c; --accent: #dc9c58; --accent-ink: #16262f;
+      --success: #8dc09b; --success-bg: #1c2f22; --danger: #e79a8c;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #f2ece0; --paper: #10191b; --surface: #182527; --surface-2: #1c2b2d;
+    --line: #2b3a3a; --muted: #a79d8c; --accent: #dc9c58; --accent-ink: #16262f;
+    --success: #8dc09b; --success-bg: #1c2f22; --danger: #e79a8c;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: "Public Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased; min-height: 100dvh;
+  }
+  h1, .display { font-family: "Archivo", "Public Sans", sans-serif; text-wrap: balance; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 16px 96px; }
+
+  /* --- gate screen --- */
+  #gate {
+    min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #gate .box {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 28px 24px; max-width: 360px; width: 100%;
+    text-align: center;
+  }
+  #gate h1 { font-size: 22px; margin: 0 0 4px; }
+  #gate p { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+  #gate input {
+    width: 100%; font-family: inherit; font-size: 17px; text-align: center;
+    letter-spacing: .04em; padding: 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--surface-2); color: var(--ink); margin-bottom: 10px;
+  }
+  #gate .err { color: var(--danger); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+
+  header.top {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+  }
+  header.top .inner {
+    max-width: 640px; margin: 0 auto; padding: 14px 16px 12px;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  }
+  header.top h1 { font-size: 21px; font-weight: 700; margin: 0; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+  .count-badge {
+    font-size: 12.5px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px;
+  }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+  .conn-dot.live { background: var(--success); }
+  .conn-dot.err { background: var(--danger); }
+
+  .searchbar { max-width: 640px; margin: 10px auto 0; padding: 0 16px; }
+  .searchbar input {
+    width: 100%; font-family: inherit; font-size: 15px; padding: 10px 12px;
+    border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  }
+  .searchbar input::placeholder { color: var(--muted); }
+  .searchbar input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .addbar { padding: 12px 0 4px; }
+  .btn {
+    font-family: "Public Sans", sans-serif; font-weight: 600; font-size: 15px;
+    border-radius: 11px; border: 1px solid transparent; cursor: pointer;
+    padding: 12px 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); width: 100%; }
+  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn-text { background: transparent; color: var(--muted); padding: 8px 4px; font-weight: 500; font-size: 14px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  form#card-form {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; margin: 10px 0 18px; box-shadow: var(--shadow);
+    display: none; flex-direction: column; gap: 12px;
+  }
+  form#card-form.open { display: flex; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .field input, .field textarea {
+    font-family: inherit; font-size: 15.5px; color: var(--ink); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px;
+  }
+  .field textarea { resize: vertical; min-height: 46px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 420px) { .row2 { grid-template-columns: 1fr; } }
+
+  .photo-row { display: flex; align-items: center; gap: 12px; }
+  .photo-preview, .avatar.photo-preview {
+    width: 52px; height: 52px; border-radius: 10px; object-fit: cover;
+    background: var(--surface-2); border: 1px solid var(--line); flex-shrink: 0;
+  }
+  .photo-btn { flex: 1; }
+  input[type="file"] { display: none; }
+
+  .ocr-status {
+    font-size: 12.5px; color: var(--muted); margin: -4px 0 2px; display: flex; align-items: center; gap: 6px;
+  }
+  .ocr-status.busy::before {
+    content: ""; width: 11px; height: 11px; border-radius: 50%;
+    border: 2px solid var(--line); border-top-color: var(--accent, #9a5b28);
+    animation: ocrspin .7s linear infinite; flex-shrink: 0;
+  }
+  @keyframes ocrspin { to { transform: rotate(360deg); } }
+  .ocr-raw {
+    font-size: 12px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; max-height: 90px; overflow-y: auto; white-space: pre-wrap;
+  }
+  .ocr-raw summary { cursor: pointer; color: var(--ink); font-size: 12.5px; }
+
+  .formactions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; padding-top: 2px; }
+  .form-status { font-size: 13px; color: var(--muted); margin-right: auto; }
+  .form-status.err { color: var(--danger); }
+
+  #list { display: flex; flex-direction: column; gap: 10px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 13px 14px; box-shadow: var(--shadow); display: flex; gap: 12px; align-items: flex-start;
+    animation: rise .28s ease both;
+  }
+  @media (prefers-reduced-motion: reduce) { .card { animation: none; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .avatar {
+    width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; object-fit: cover;
+    background: var(--surface-2); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Archivo", sans-serif; font-weight: 700; font-size: 16px; color: var(--muted);
+  }
+  .card-body { min-width: 0; flex: 1; }
+  .card-name { font-weight: 700; font-size: 15.5px; letter-spacing: -.005em; }
+  .card-company { color: var(--muted); font-size: 13.5px; margin-top: 1px; }
+  .card-meta { font-size: 13.5px; color: var(--ink); margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px 14px; font-variant-numeric: tabular-nums; }
+  .card-meta a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .card-note { font-size: 13.5px; margin-top: 7px; padding: 7px 10px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--line); }
+  .card-foot { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+
+  .empty { text-align: center; padding: 54px 20px; color: var(--muted); }
+  .empty .display { font-size: 18px; color: var(--ink); margin-bottom: 6px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(0);
+    background: var(--success-bg); color: var(--success); border: 1px solid var(--line);
+    padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: 14px;
+    box-shadow: var(--shadow); z-index: 40; opacity: 0; pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  .toast.err { background: var(--surface); color: var(--danger); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+
+  footer.bottom { padding: 22px 0 10px; display: flex; justify-content: center; gap: 16px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="box">
+    <h1>🗂️ Kontaktkartotek</h1>
+    <p>Indtast den fælles adgangskode for at åbne kartoteket.</p>
+    <input type="password" id="gate-input" placeholder="Adgangskode" autocomplete="off" inputmode="text">
+    <div class="err" id="gate-err"></div>
+    <button type="button" class="btn btn-primary" id="gate-btn">Åbn kartotek</button>
+  </div>
+</div>
+
+<div class="wrap" id="app" hidden>
+
+  <header class="top">
+    <div class="inner">
+      <h1>🗂️ Kontaktkartotek <span class="count-badge" id="count-badge">0</span></h1>
+      <span class="conn-dot" id="conn-dot" title="Forbindelsesstatus"></span>
+    </div>
+  </header>
+
+  <div class="searchbar">
+    <input type="search" id="search" placeholder="Søg på navn, firma eller note …" autocomplete="off">
+  </div>
+
+  <div class="addbar">
+    <button type="button" class="btn btn-primary" id="toggle-form">+ Nyt kort</button>
+  </div>
+
+  <form id="card-form" autocomplete="off">
+    <p class="eyebrow" style="margin:0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Nyt kontaktkort</p>
+
+    <div class="photo-row">
+      <img class="photo-preview" id="photo-preview" hidden alt="">
+      <div class="avatar photo-preview" id="photo-placeholder" style="display:flex">📇</div>
+      <button type="button" class="btn btn-ghost photo-btn" id="photo-btn">Tag billede af visitkort</button>
+      <input type="file" id="photo-input" accept="image/*" capture="environment">
+    </div>
+    <div class="ocr-status" id="ocr-status" hidden></div>
+    <details class="ocr-raw" id="ocr-raw" hidden>
+      <summary>Genkendt tekst fra kortet (til kontrol)</summary>
+      <div id="ocr-raw-text"></div>
+    </details>
+
+    <div class="field"><label for="f-navn">Navn *</label><input type="text" id="f-navn" required placeholder="Anders Andersen"></div>
+    <div class="row2">
+      <div class="field"><label for="f-virksomhed">Virksomhed</label><input type="text" id="f-virksomhed" placeholder="Eksempel A/S"></div>
+      <div class="field"><label for="f-titel">Titel</label><input type="text" id="f-titel" placeholder="CEO / ejer"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label for="f-telefon">Telefon</label><input type="tel" id="f-telefon" placeholder="+45 …"></div>
+      <div class="field"><label for="f-email">Email</label><input type="email" id="f-email" placeholder="navn@firma.dk"></div>
+    </div>
+    <div class="field"><label for="f-note">Bådinteresse / note</label><textarea id="f-note" placeholder="Fx: kigger på 60'eren, ejer i dag en Princess F55 …"></textarea></div>
+    <div class="field"><label for="f-hvem">Dit navn (indtastet af)</label><input type="text" id="f-hvem" placeholder="Dit navn" required></div>
+
+    <div class="formactions">
+      <span class="form-status" id="form-status"></span>
+      <button type="button" class="btn btn-text" id="cancel-form">Annuller</button>
+      <button type="submit" class="btn btn-primary" id="save-btn" style="width:auto">Gem kontakt</button>
+    </div>
+  </form>
+
+  <div id="list"></div>
+  <div class="empty" id="empty-state" hidden>
+    <div class="display">Ingen kort endnu</div>
+    <div>Tryk “+ Nyt kort” for at tilføje det første.</div>
+  </div>
+
+  <footer class="bottom">
+    <button type="button" class="btn btn-text" id="export-btn">Eksportér som CSV</button>
+    <button type="button" class="btn btn-text" id="logout-btn">Log ud af kartotek</button>
+  </footer>
+
+</div>
+
+<div class="toast" id="toast">Gemt ✓</div>
+
+<!-- Tesseract.js — gratis tekstgenkendelse (OCR), kører helt i browseren, ingen nøgle/betaling -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<!-- Firebase (uafhængigt af Claude — Googles gratis Firestore-database) -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+// ---------------------------------------------------------------------------
+// UDFYLD DETTE med jeres egne værdier fra Firebase Console (se vejledning
+// i en kommentar øverst i denne fil). Uden dette virker siden ikke.
+// ---------------------------------------------------------------------------
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB8HMtbaTkv4HhrMRdMaHcy_4sAI7NGDII",
+  authDomain: "newcontacts-b62c2.firebaseapp.com",
+  projectId: "newcontacts-b62c2",
+  storageBucket: "newcontacts-b62c2.firebasestorage.app",
+  messagingSenderId: "901976292200",
+  appId: "1:901976292200:web:7dd04136e402d03ae1b4dd"
+};
+
+// Skift til jeres egen kode. Skal matche PASSCODE_HASH-tjekket i
+// firestore.rules.txt (se den fil for hvordan I sætter en matchende kode).
+const PASSCODE = "SIRENA2026";
+
+let db, entriesCol;
+const state = { entries: [], connected: false };
+
+function firebaseReady() {
+  return !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId);
+}
+
+async function initFirebase() {
+  if (!firebaseReady()) {
+    setConnDot('err');
+    setStatus('Firebase er ikke sat op endnu — se vejledningen øverst i filen.', true);
+    return;
+  }
+  try {
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+    await signInAnonymously(auth);
+    db = getFirestore(app);
+    entriesCol = collection(db, "messekartotek_entries");
+    const q = query(entriesCol, orderBy("tidspunkt", "desc"));
+    onSnapshot(q, (snap) => {
+      state.entries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      state.connected = true;
+      setConnDot('live');
+      render();
+    }, (err) => {
+      state.connected = false;
+      setConnDot('err');
+      console.error(err);
+    });
+  } catch (e) {
+    console.error(e);
+    setConnDot('err');
+    setStatus('Kunne ikke forbinde til databasen. Tjek FIREBASE_CONFIG.', true);
+  }
+}
+
+function setConnDot(mode) {
+  var dot = document.getElementById('conn-dot');
+  dot.classList.remove('live', 'err');
+  if (mode === 'live') dot.classList.add('live');
+  if (mode === 'err') dot.classList.add('err');
+  dot.title = mode === 'live' ? 'Forbundet' : mode === 'err' ? 'Ikke forbundet' : 'Forbinder …';
+}
+
+// --- gate ---
+document.getElementById('gate-btn').addEventListener('click', tryUnlock);
+document.getElementById('gate-input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') tryUnlock();
+});
+function tryUnlock() {
+  var val = document.getElementById('gate-input').value;
+  if (val === PASSCODE) {
+    try { sessionStorage.setItem('mk_unlocked', '1'); } catch (e) {}
+    document.getElementById('gate').hidden = true;
+    document.getElementById('app').hidden = false;
+    initFirebase();
+  } else {
+    document.getElementById('gate-err').textContent = 'Forkert adgangskode.';
+  }
+}
+try {
+  if (sessionStorage.getItem('mk_unlocked') === '1') {
+    document.getElementById('gate').hidden = true;
+    document.getElementById('app').hidden = false;
+    initFirebase();
+  }
+} catch (e) {}
+document.getElementById('logout-btn').addEventListener('click', function () {
+  try { sessionStorage.removeItem('mk_unlocked'); } catch (e) {}
+  location.reload();
+});
+
+// --- helpers ---
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function initials(name) {
+  var parts = String(name || '?').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  var first = parts[0][0] || '', last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+  return (first + last).toUpperCase();
+}
+function timeAgo(ts) {
+  if (!ts) return 'lige nu';
+  var d = ts.toDate ? ts.toDate() : new Date(ts);
+  if (isNaN(d)) return '';
+  var diffMin = Math.round((Date.now() - d.getTime()) / 60000);
+  if (diffMin < 1) return 'lige nu';
+  if (diffMin < 60) return diffMin + ' min. siden';
+  var diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return diffH + ' t. siden';
+  return d.toLocaleDateString('da-DK', {day:'numeric',month:'short'}) + ' kl. ' + d.toLocaleTimeString('da-DK', {hour:'2-digit',minute:'2-digit'});
+}
+function cardHtml(e) {
+  var avatar = e.foto ? '<img class="avatar" src="'+e.foto+'" alt="">' : '<div class="avatar">'+escapeHtml(initials(e.navn))+'</div>';
+  var metaBits = [];
+  if (e.telefon) metaBits.push('<a href="tel:'+escapeHtml(e.telefon)+'">'+escapeHtml(e.telefon)+'</a>');
+  if (e.email) metaBits.push('<a href="mailto:'+escapeHtml(e.email)+'">'+escapeHtml(e.email)+'</a>');
+  var meta = metaBits.length ? '<div class="card-meta">'+metaBits.join('')+'</div>' : '';
+  var note = e.note ? '<div class="card-note">'+escapeHtml(e.note)+'</div>' : '';
+  var companyLine = [e.titel, e.virksomhed].filter(Boolean).map(escapeHtml).join(' · ');
+  return '<div class="card">'+avatar+'<div class="card-body">'+
+    '<div class="card-name">'+escapeHtml(e.navn)+'</div>'+
+    (companyLine ? '<div class="card-company">'+companyLine+'</div>' : '')+
+    meta + note +
+    '<div class="card-foot">Noteret af '+escapeHtml(e.hvem||'?')+' · '+timeAgo(e.tidspunkt)+'</div>'+
+    '</div></div>';
+}
+function render() {
+  var entries = state.entries.slice();
+  var q = (document.getElementById('search').value || '').trim().toLowerCase();
+  if (q) entries = entries.filter(e => [e.navn,e.virksomhed,e.note,e.titel].join(' ').toLowerCase().indexOf(q) !== -1);
+  document.getElementById('count-badge').textContent = state.entries.length;
+  var list = document.getElementById('list'), empty = document.getElementById('empty-state');
+  if (!entries.length) {
+    list.innerHTML = '';
+    empty.hidden = false;
+    empty.querySelector('.display').textContent = q ? 'Ingen match' : 'Ingen kort endnu';
+    empty.querySelector('div:last-child').textContent = q ? 'Prøv en anden søgning.' : 'Tryk “+ Nyt kort” for at tilføje det første.';
+  } else {
+    empty.hidden = true;
+    list.innerHTML = entries.map(cardHtml).join('');
+  }
+}
+function showToast(msg, isErr) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.toggle('err', !!isErr); t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+function setStatus(msg, isErr) {
+  var s = document.getElementById('form-status');
+  s.textContent = msg || ''; s.classList.toggle('err', !!isErr);
+}
+
+// --- form ---
+var form = document.getElementById('card-form');
+var toggleBtn = document.getElementById('toggle-form');
+var photoInput = document.getElementById('photo-input');
+var photoPreview = document.getElementById('photo-preview');
+var photoPlaceholder = document.getElementById('photo-placeholder');
+var pendingPhoto = null;
+
+function openForm() { form.classList.add('open'); toggleBtn.hidden = true; document.getElementById('f-navn').focus(); }
+function closeForm() {
+  form.classList.remove('open'); toggleBtn.hidden = false; form.reset();
+  pendingPhoto = null; photoPreview.hidden = true; photoPlaceholder.style.display = 'flex'; setStatus('');
+  setOcrStatus(''); var raw = document.getElementById('ocr-raw'); raw.hidden = true; raw.open = false;
+}
+toggleBtn.addEventListener('click', openForm);
+document.getElementById('cancel-form').addEventListener('click', closeForm);
+document.getElementById('photo-btn').addEventListener('click', () => photoInput.click());
+photoInput.addEventListener('change', function () {
+  var file = photoInput.files && photoInput.files[0];
+  if (!file) return;
+  var img = new Image(), reader = new FileReader();
+  reader.onload = function () {
+    img.onload = function () {
+      // Lille thumbnail — det, der gemmes på kontaktkortet.
+      var maxW = 300, scale = Math.min(1, maxW / img.width);
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      pendingPhoto = canvas.toDataURL('image/jpeg', 0.55);
+      photoPreview.src = pendingPhoto; photoPreview.hidden = false; photoPlaceholder.style.display = 'none';
+
+      // Større version — kun brugt lokalt til tekstgenkendelse, gemmes ikke.
+      var ocrMaxW = 1400, ocrScale = Math.min(1, ocrMaxW / img.width);
+      var ocrCanvas = document.createElement('canvas');
+      ocrCanvas.width = Math.round(img.width * ocrScale); ocrCanvas.height = Math.round(img.height * ocrScale);
+      ocrCanvas.getContext('2d').drawImage(img, 0, 0, ocrCanvas.width, ocrCanvas.height);
+      runOcrAndAutofill(ocrCanvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+// --- OCR: læs teksten på visitkortet og forududfyld felterne ---
+function setOcrStatus(msg, busy) {
+  var el = document.getElementById('ocr-status');
+  el.textContent = msg || ''; el.hidden = !msg; el.classList.toggle('busy', !!busy);
+}
+
+async function runOcrAndAutofill(imageDataUrl) {
+  if (typeof Tesseract === 'undefined') {
+    setOcrStatus('Tekstgenkendelse kunne ikke indlæses (tjek internetforbindelsen).', false);
+    return;
+  }
+  setOcrStatus('Genkender tekst fra billedet …', true);
+  try {
+    var result = await Tesseract.recognize(imageDataUrl, 'eng+dan');
+    var text = (result && result.data && result.data.text) || '';
+    text = text.trim();
+    if (!text) {
+      setOcrStatus('Kunne ikke læse teksten — udfyld felterne manuelt.', false);
+      return;
+    }
+    var guess = parseCardText(text);
+    fillIfEmpty('f-navn', guess.navn);
+    fillIfEmpty('f-virksomhed', guess.virksomhed);
+    fillIfEmpty('f-titel', guess.titel);
+    fillIfEmpty('f-telefon', guess.telefon);
+    fillIfEmpty('f-email', guess.email);
+
+    var rawBox = document.getElementById('ocr-raw');
+    document.getElementById('ocr-raw-text').textContent = text;
+    rawBox.hidden = false;
+
+    setOcrStatus('Tekst genkendt — tjek felterne, de kan indeholde fejl.', false);
+  } catch (err) {
+    console.error(err);
+    setOcrStatus('Tekstgenkendelse fejlede — udfyld felterne manuelt.', false);
+  }
+}
+
+function fillIfEmpty(id, value) {
+  if (!value) return;
+  var el = document.getElementById(id);
+  if (el && !el.value) el.value = value;
+}
+
+// Meget simpel best-guess-parser: visitkort har ingen fast struktur, så det
+// her er et kvalificeret gæt, ikke en garanti. Alt kan rettes manuelt.
+function parseCardText(rawText) {
+  var lines = rawText.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+
+  var emailMatch = rawText.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+  var email = emailMatch ? emailMatch[0] : '';
+
+  var phoneMatch = rawText.match(/(\+?\d[\d\s().-]{6,}\d)/);
+  var phone = phoneMatch ? phoneMatch[0].replace(/\s{2,}/g, ' ').trim() : '';
+
+  var titleKeywords = /\b(ceo|cfo|coo|cto|direkt[øo]r|adm\.?\s*direkt[øo]r|managing director|manager|salg|sales|account|marketing|ejer|owner|indehaver|partner|founder|stifter|president|head of|chef|geschäftsführer|ingeni[øo]r|engineer)\b/i;
+  var companySuffix = /\b(A\/S|ApS|I\/S|Inc\.?|Ltd\.?|LLC|GmbH|Corp\.?|Group|Yachts?|Marine|Boats?|AB|AS|Oy)\b/i;
+
+  var used = {};
+  var titel = '', virksomhed = '', navn = '';
+
+  lines.forEach(function (line, i) {
+    if (used[i]) return;
+    if (email && line.indexOf(email) !== -1) used[i] = true;
+    else if (phone && line.indexOf(phone.replace(/\s+/g, '')) !== -1) used[i] = true;
+  });
+
+  lines.forEach(function (line, i) {
+    if (used[i] || titel) return;
+    if (titleKeywords.test(line)) { titel = line.replace(/[,.;]+$/, '').trim(); used[i] = true; }
+  });
+
+  lines.forEach(function (line, i) {
+    if (used[i] || virksomhed) return;
+    if (companySuffix.test(line)) { virksomhed = line.replace(/[,.;]+$/, '').trim(); used[i] = true; }
+  });
+
+  // Foretræk en linje, der ligner et rigtigt navn (2-4 ord med stort forbogstav,
+  // intet komma, ingen tal) — det undgår fx at gætte en by/adresse som navn.
+  var strictName = /^[A-ZÆØÅÄÖÜ][\p{L}'’-]+(\s+[A-ZÆØÅÄÖÜ][\p{L}'’-]+){1,3}$/u;
+  for (var i = 0; i < lines.length; i++) {
+    if (used[i]) continue;
+    var candidate = lines[i].replace(/[,.;]+$/, '').trim();
+    if (candidate.indexOf(',') === -1 && !/\d/.test(candidate) && strictName.test(candidate)) {
+      navn = candidate; used[i] = true; break;
+    }
+  }
+  // Løsere fald-tilbage, hvis intet matchede stramt ovenfor.
+  if (!navn) {
+    for (var j = 0; j < lines.length; j++) {
+      if (used[j]) continue;
+      var fallback = lines[j].replace(/[,.;]+$/, '').trim();
+      if (fallback.length >= 3 && fallback.length <= 45 && !/\d{4}/.test(fallback) && fallback.indexOf(',') === -1) {
+        navn = fallback; used[j] = true; break;
+      }
+    }
+  }
+
+  return { navn: navn, virksomhed: virksomhed, titel: titel, telefon: phone, email: email };
+}
+
+try {
+  var savedWho = localStorage.getItem('messekartotek_hvem');
+  if (savedWho) document.getElementById('f-hvem').value = savedWho;
+} catch (e) {}
+
+form.addEventListener('submit', async function (ev) {
+  ev.preventDefault();
+  var navn = document.getElementById('f-navn').value.trim();
+  var hvem = document.getElementById('f-hvem').value.trim();
+  if (!navn || !hvem) { setStatus('Udfyld navn og "dit navn".', true); return; }
+  try { localStorage.setItem('messekartotek_hvem', hvem); } catch (e) {}
+
+  if (!entriesCol) { setStatus('Ikke forbundet til databasen endnu.', true); return; }
+
+  var saveBtn = document.getElementById('save-btn');
+  saveBtn.disabled = true; setStatus('Gemmer …');
+  try {
+    await addDoc(entriesCol, {
+      navn: navn,
+      virksomhed: document.getElementById('f-virksomhed').value.trim(),
+      titel: document.getElementById('f-titel').value.trim(),
+      telefon: document.getElementById('f-telefon').value.trim(),
+      email: document.getElementById('f-email').value.trim(),
+      note: document.getElementById('f-note').value.trim(),
+      hvem: hvem,
+      foto: pendingPhoto,
+      tidspunkt: serverTimestamp()
+    });
+    closeForm();
+    showToast('Gemt ✓');
+  } catch (err) {
+    console.error(err);
+    setStatus('Kunne ikke gemme — tjek forbindelsen.', true);
+  } finally {
+    saveBtn.disabled = false;
+  }
+});
+
+document.getElementById('search').addEventListener('input', render);
+
+document.getElementById('export-btn').addEventListener('click', function () {
+  var cols = ['navn','virksomhed','titel','telefon','email','note','hvem'];
+  var rows = [cols.join(',')].concat(state.entries.map(e =>
+    cols.map(c => '"' + String(e[c] || '').replace(/"/g,'""') + '"').join(',')
+  ));
+  var blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'kontaktkartotek.csv';
+  a.click();
+});
+
+render();
+</script>
+</body>
+</html>
